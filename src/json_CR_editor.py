@@ -25,6 +25,10 @@ def save_json(file_path, data):
     except Exception as e:
         st.error(f"Error saving file: {e}")
 
+def get_modifications_state(annotation):
+    """Return the correct radio button index based on the modification state"""
+    return 1 if annotation.get("modifications", False) else 0
+
 
 for temp_file in glob.glob("temp_*.json"):
     os.remove(temp_file)
@@ -74,7 +78,7 @@ if data:
                     "modifications": annotation.get("modifications", False),  # Add modifications field
                     "hpoAnnotations": []
                 }
-                hpoAnnotations = annotation.get("hpoAnnotations", [])
+                hpoAnnotations = annotation.get("hpoAnnotation", [])
                 for hpo in hpoAnnotations:
                     entry["hpoAnnotations"].append({
                         "hpoId": hpo.get("hpoId", ""),
@@ -86,6 +90,7 @@ if data:
         return extracted_data
 
     extracted_data = extract_relevant_fields(data)
+    # st.write(extracted_data)
 
     # Initialize session_state variables if they don't exist
     if "annotations" not in st.session_state:
@@ -129,25 +134,34 @@ if data:
 
         modifications_detected = False
 
+        st.write(annotation["modifications"])
+        
+        if "modifications" not in annotation:  # Only set modifications if not already set
+            annotation["modifications"] = annotation.get("modifications", False)  
+        
+
         # Set modifications to True if any field has changed
         if (annotation["sentence"] != original_sentence or
         annotation["concerned_person"] != original_concerned_person or
         annotation["negated"] != original_negated or
         any(hpo["hpoId"] != orig_hpo["hpoId"] or hpo["hpoName"] != orig_hpo["hpoName"]
             for hpo, orig_hpo in zip(new_hpo_annotations, original_hpo_annotations))):
-            
             modifications_detected = True
 
         # Only set modifications to True once per annotation
         if not modifications_detected:
-            annotation["modifications"] = False
+            annotation["modifications"] = annotation["modifications"]
         else:
             # Reset to False if no modifications are detected
             annotation["modifications"] = True
 
+        st.write(annotation["modifications"])
+
         # Radio for modifications, reflecting the current state of 'modifications'
         modifications_key = f"modifications_radio_{annotation['id_annotation']}"
-        radio_index = 1 if annotation.get("modifications") else 0
+        radio_index = get_modifications_state(annotation)
+        st.write(radio_index)
+        
         annotation["modifications_radio"] = st.radio(
             "Modifications",
             ["Non", "Oui"],
@@ -180,7 +194,7 @@ if data:
                 "concerned_person": annotation["concerned_person"],
                 "negated": annotation["negated"],
                 "modifications": annotation["modifications"],  # Ajout du champ 'modifications'
-                "hpoAnnotations": [
+                "hpoAnnotation": [
                     {
                         "hpoId": hpo["hpoId"],
                         "hpoName": hpo["hpoName"]
