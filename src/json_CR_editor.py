@@ -134,7 +134,7 @@ if data:
 
         modifications_detected = False
 
-        st.write(annotation["modifications"])
+        # st.write(annotation["modifications"])
         
         if "modifications" not in annotation:  # Only set modifications if not already set
             annotation["modifications"] = annotation.get("modifications", False)  
@@ -155,12 +155,12 @@ if data:
             # Reset to False if no modifications are detected
             annotation["modifications"] = True
 
-        st.write(annotation["modifications"])
+        # st.write(annotation["modifications"])
 
         # Radio for modifications, reflecting the current state of 'modifications'
         modifications_key = f"modifications_radio_{annotation['id_annotation']}"
         radio_index = get_modifications_state(annotation)
-        st.write(radio_index)
+        # st.write(radio_index)
         
         annotation["modifications_radio"] = st.radio(
             "Modifications",
