@@ -51,8 +51,22 @@ for temp_file in glob.glob("temp_*.json"):
 # Streamlit UI
 st.markdown('<a id="top"></a>', unsafe_allow_html=True)
 st.title("JSON Editor App")
-st.text("Cette application vous aidera à annoter les compte-rendus médicaux électroniques simulés. Vous pouvez modifier chaque entrée ou ajouter de nouvelles sections d'annotation. Le bouton pour enregistrer le nouveau fichier modifié se trouve tout en bas de la page. Pour passer au fichier suivant, veuillez utiliser soit le bouton en bas de page pour nettoyer les fichiers temporaires soit la croix pour retirer le fichier déjà présent mais surtout ne pas utiliser le bouton browse files avec un fichier déjà chargé. Sinon, il vous faudra recharger la page.")
-
+with st.expander("Instructions pour l'annotation"):
+    st.markdown("""
+    Cette application vous aidera à annoter les compte-rendus médicaux électroniques simulés. 
+    Vous pouvez modifier chaque entrée ou ajouter de nouvelles sections d'annotation.
+    
+    **Instructions :**
+    
+    1. Le bouton pour enregistrer le nouveau fichier modifié se trouve tout en bas de la page.
+    2. Pour passer au fichier suivant, veuillez utiliser soit :
+        - Le bouton en bas de page pour nettoyer les fichiers temporaires.
+        - La croix pour retirer le fichier déjà présent.
+        
+    **Important :**
+    - Ne pas utiliser le bouton "browse files" avec un fichier déjà chargé. Sinon, il vous faudra recharger la page.
+    """)
+    
 author_name = st.text_input("Saisir initiale de l'auteur", "")
 hpo_dict, hpo_names = load_hpo_terms_multilang("resources/hpoterms08022021_en_fr.txt")
 uploaded_file = st.file_uploader("Charger un fichier JSON", type=["json"])
