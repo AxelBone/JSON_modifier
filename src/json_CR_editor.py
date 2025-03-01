@@ -14,16 +14,13 @@ from fuzzywuzzy import process  # Import fuzzywuzzy
 # ==== Load HPO data ======
 @st.cache_data
 def load_hpo_terms_multilang(file_path="hpo_terms.tsv"):
-    """Charge les termes HPO et gère les traductions en FR/EN"""
+    """Load HPO terms and create a dictionary for mapping names to IDs"""
     hpo_df = pd.read_csv(file_path, sep="\t", header=None, names=["name", "id"])
     
-    hpo_dict = defaultdict(list)
-    for _, row in hpo_df.iterrows():
-        hpo_dict[row["id"]].append(row["name"])
+    hpo_dict = {row["name"]: row["id"] for _, row in hpo_df.iterrows()}  # Map HPO name -> ID
+    hpo_names = list(hpo_dict.keys())  # List of all HPO names for autocomplete
 
-    hpo_list = [{"id": hpo_id, "name": name} for hpo_id, names in hpo_dict.items() for name in names]
-    
-    return pd.DataFrame(hpo_list)
+    return hpo_dict, hpo_names
 
 
 def load_json(file_path):
@@ -57,7 +54,7 @@ st.title("JSON Editor App")
 st.text("Cette application vous aidera à annoter les compte-rendus médicaux électroniques simulés. Vous pouvez modifier chaque entrée ou ajouter de nouvelles sections d'annotation. Le bouton pour enregistrer le nouveau fichier modifié se trouve tout en bas de la page. Pour passer au fichier suivant, veuillez utiliser soit le bouton en bas de page pour nettoyer les fichiers temporaires soit la croix pour retirer le fichier déjà présent mais surtout ne pas utiliser le bouton browse files avec un fichier déjà chargé. Sinon, il vous faudra recharger la page.")
 
 author_name = st.text_input("Saisir initiale de l'auteur", "")
-hpo_df = load_hpo_terms_multilang("resources/hpoterms08022021_en_fr.txt")
+hpo_dict, hpo_names = load_hpo_terms_multilang("resources/hpoterms08022021_en_fr.txt")
 uploaded_file = st.file_uploader("Charger un fichier JSON", type=["json"])
 
 data = {}
@@ -147,33 +144,40 @@ if data:
         new_hpo_annotations = []
         for j, hpo in enumerate(annotation.get("hpoAnnotations", [])):
             st.markdown(f"#### Annotation HPO {i + 1}")
-            hpo["hpoId"] = st.text_input(f"ID HPO {i + 1}-{j + 1}", value=hpo["hpoId"])
 
-            # Extract HPO names for selectbox
-            hpo_names = hpo_df["name"].tolist()
+            custom_hpo_name = hpo["hpoName"]  # Valeur existante du JSON
 
+            # Vérifier si le terme HPO existe dans la liste connue
+            if custom_hpo_name and custom_hpo_name not in hpo_names:
+                hpo_names_with_custom = [custom_hpo_name] + hpo_names  # Ajout au début
+            else:
+                hpo_names_with_custom = hpo_names
 
-            best_match = hpo["hpoName"]
-            index = 0
-
-            if hpo["hpoName"]:
-                best_match, score = process.extractOne(hpo["hpoName"], hpo_names)
-                if score >= 60:
-                    best_match = best_match
-
+            # Sélection par défaut : toujours garder la valeur du JSON
             try:
-                index = hpo_names.index(best_match)
+                default_index = hpo_names_with_custom.index(custom_hpo_name)
             except ValueError:
-                index = 0
+                default_index = 0  # Si erreur, prendre le premier élément
 
-            hpo["hpoName"] = st.selectbox(
+            # Sélecteur HPO Name
+            selected_hpo_name = st.selectbox(
                 f"Nom HPO {i + 1}-{j + 1}",
-                options=hpo_names,
-                index = index,
+                options=hpo_names_with_custom,
+                index=default_index  # Garder la valeur du JSON par défaut
             )
+
+            # Mise à jour de l'ID seulement si la sélection correspond à l'ontologie
+            if selected_hpo_name in hpo_dict:
+                hpo["hpoId"] = hpo_dict[selected_hpo_name]
+
+            hpo["hpoName"] = selected_hpo_name
+
+            # Affichage du HPO ID (désactivé pour éviter les erreurs manuelles)
+            st.text_input(f"ID HPO {i + 1}-{j + 1}", value=hpo["hpoId"], disabled=True)
+
             new_hpo_annotations.append(hpo)
-
-
+            
+            # hpo["hpoId"] = st.text_input(f"ID HPO {i + 1}-{j + 1}", value=hpo["hpoId"])
             # hpo["hpoName"] = st.text_input(f"Nom HPO {i + 1}-{j + 1}", value=hpo["hpoName"])
             # new_hpo_annotations.append(hpo)
         
