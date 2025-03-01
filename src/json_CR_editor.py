@@ -6,6 +6,24 @@ from streamlit_js_eval import streamlit_js_eval
 import copy
 import glob
 import tempfile
+from collections import defaultdict
+import pandas as pd
+from fuzzywuzzy import process  # Import fuzzywuzzy
+
+
+# ==== Load HPO data ======
+@st.cache_data
+def load_hpo_terms_multilang(file_path="hpo_terms.tsv"):
+    """Charge les termes HPO et gère les traductions en FR/EN"""
+    hpo_df = pd.read_csv(file_path, sep="\t", header=None, names=["name", "id"])
+    
+    hpo_dict = defaultdict(list)
+    for _, row in hpo_df.iterrows():
+        hpo_dict[row["id"]].append(row["name"])
+
+    hpo_list = [{"id": hpo_id, "name": name} for hpo_id, names in hpo_dict.items() for name in names]
+    
+    return pd.DataFrame(hpo_list)
 
 
 def load_json(file_path):
@@ -39,7 +57,7 @@ st.title("JSON Editor App")
 st.text("Cette application vous aidera à annoter les compte-rendus médicaux électroniques simulés. Vous pouvez modifier chaque entrée ou ajouter de nouvelles sections d'annotation. Le bouton pour enregistrer le nouveau fichier modifié se trouve tout en bas de la page. Pour passer au fichier suivant, veuillez utiliser soit le bouton en bas de page pour nettoyer les fichiers temporaires soit la croix pour retirer le fichier déjà présent mais surtout ne pas utiliser le bouton browse files avec un fichier déjà chargé. Sinon, il vous faudra recharger la page.")
 
 author_name = st.text_input("Saisir initiale de l'auteur", "")
-
+hpo_df = load_hpo_terms_multilang("resources/hpoterms08022021_en_fr.txt")
 uploaded_file = st.file_uploader("Charger un fichier JSON", type=["json"])
 
 data = {}
@@ -116,19 +134,48 @@ if data:
             "hpoName": hpo["hpoName"]
         } for hpo in original_annotation.get("hpoAnnotations", [])]
 
-        # Fields where modifications could occur
+        # ===== SENTENCE FIELD ======
         annotation["sentence"] = st.text_input(f"Phrase {i + 1}", value=annotation["sentence"])
+
+        # ====== PERSON CONCERNED FIELD ========
         annotation["concerned_person"] = st.text_input(f"Personne concernée {i + 1}", value=annotation["concerned_person"])
         
-        # Add the negated field (checkbox)
+        # ====== NEGATED FIELD 
         annotation["negated"] = st.checkbox(f"Négation {i + 1}", value=annotation["negated"])
 
+        # ======== HPO FIELD WITH AUTO-COMPLETION ==========
         new_hpo_annotations = []
         for j, hpo in enumerate(annotation.get("hpoAnnotations", [])):
             st.markdown(f"#### Annotation HPO {i + 1}")
             hpo["hpoId"] = st.text_input(f"ID HPO {i + 1}-{j + 1}", value=hpo["hpoId"])
-            hpo["hpoName"] = st.text_input(f"Nom HPO {i + 1}-{j + 1}", value=hpo["hpoName"])
+
+            # Extract HPO names for selectbox
+            hpo_names = hpo_df["name"].tolist()
+
+
+            best_match = hpo["hpoName"]
+            index = 0
+
+            if hpo["hpoName"]:
+                best_match, score = process.extractOne(hpo["hpoName"], hpo_names)
+                if score >= 60:
+                    best_match = best_match
+
+            try:
+                index = hpo_names.index(best_match)
+            except ValueError:
+                index = 0
+
+            hpo["hpoName"] = st.selectbox(
+                f"Nom HPO {i + 1}-{j + 1}",
+                options=hpo_names,
+                index = index,
+            )
             new_hpo_annotations.append(hpo)
+
+
+            # hpo["hpoName"] = st.text_input(f"Nom HPO {i + 1}-{j + 1}", value=hpo["hpoName"])
+            # new_hpo_annotations.append(hpo)
         
         annotation["hpoAnnotations"] = new_hpo_annotations
 
