@@ -8,7 +8,6 @@ import glob
 import tempfile
 from collections import defaultdict
 import pandas as pd
-from fuzzywuzzy import process  # Import fuzzywuzzy
 
 
 # ==== Load HPO data ======
